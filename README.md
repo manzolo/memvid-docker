@@ -86,12 +86,19 @@ The container runs as non-root `appuser` (UID 1000). Host directories must be wr
 
 ## Development
 
-There is no separate Python test suite. CI (see `.github/workflows/ci.yml`) checks:
+There is no separate Python test suite. CI (see `.github/workflows/ci.yml`) runs two jobs:
 
+**`validate`** (fast, ~30s):
 - Python syntax (`py_compile`) of every file under `py/`
 - `docker compose config` parses cleanly
 - Dockerfile passes [hadolint](https://github.com/hadolint/hadolint)
 - Required files referenced by `Dockerfile` / `docker-compose.yml` exist
+
+**`integration`** (slow, ~10 min cold / ~3 min cached):
+- Builds the Docker image (cached via `type=gha`)
+- Spins up `ollama/ollama` and pulls `tinyllama`
+- Ingests a sample Markdown doc, waits for `/status` to report ready
+- Hits `/ask` in both `mechanical` and `intelligent` modes and asserts the response shape
 
 A smoke test against Memvid itself lives in `py/test_memvid.py` and can be run inside the container:
 

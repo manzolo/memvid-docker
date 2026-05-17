@@ -70,3 +70,157 @@ jobs:
               echo "::warning::README does not reference $path"
             fi
           done
+
+  integration:
+    name: End-to-end (memvid + ollama)
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 25
+    env:
+      OLLAMA_MODEL: tinyllama
+      MEMVID_IMAGE: memvid:ci
+      NET: memvid-ci-net
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: |
+          # The runner ships with ~14GB free; torch + opencv + ffmpeg + ollama model
+          # together come close to that. Trim a couple of large unused toolchains.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL || true
+          docker system prune -af || true
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build memvid image (with GHA cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.MEMVID_IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create docker network
+        run: docker network create "$NET"
+
+      - name: Start Ollama
+        run: |
+          docker run -d --name ollama \
+            --network "$NET" \
+            -p 11434:11434 \
+            ollama/ollama:latest
+          echo "Waiting for Ollama API..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:11434/api/tags >/dev/null; then
+              echo "Ollama up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Ollama did not become ready in time"
+          docker logs ollama
+          exit 1
+
+      - name: Pull tiny model
+        run: |
+          docker exec ollama ollama pull "$OLLAMA_MODEL"
+          docker exec ollama ollama list
+
+      - name: Prepare workspace + sample document
+        run: |
+          # Container runs as UID 1000; make rw volumes writable by it.
+          mkdir -p data output
+          chmod -R 777 data output
+          rm -f docs/.gitkeep
+          cat > docs/sample.md <<'EOF'
+          # Project Polaris
+
+          Project Polaris is an internal initiative to migrate our data pipelines
+          to a new orchestrator. The lead engineer is Alessia Romano.
+
+          ## Key facts
+
+          - The migration deadline is November 2026.
+          - The new orchestrator is called Helix.
+          - Helix replaces the legacy Airflow 1.x deployment.
+          - The rollback procedure requires restoring snapshot S-714.
+          EOF
+
+      - name: Start memvid container
+        run: |
+          docker run -d --name memvid \
+            --network "$NET" \
+            -p 7860:7860 \
+            -v "$PWD/docs:/app/docs:ro" \
+            -v "$PWD/pdfs:/app/pdfs:ro" \
+            -v "$PWD/output:/app/output" \
+            -v "$PWD/data:/app/data" \
+            -e OLLAMA_HOST=http://ollama:11434 \
+            -e OLLAMA_MODEL="$OLLAMA_MODEL" \
+            "$MEMVID_IMAGE" \
+            python /app/process_docs.py ui
+
+      - name: Wait for memvid /status
+        run: |
+          # First start downloads sentence-transformers models + builds the
+          # knowledge video, so the timeout is generous.
+          deadline=$((SECONDS + 480))
+          while [ $SECONDS -lt $deadline ]; do
+            body=$(curl -sf http://localhost:7860/status || true)
+            if [ -n "$body" ] && echo "$body" | grep -q '"memvid_ready": true'; then
+              echo "Memvid ready: $body"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Memvid not ready in time. Last container logs:"
+          docker logs --tail 200 memvid
+          exit 1
+
+      - name: Test /status reports Ollama available
+        run: |
+          body=$(curl -sf http://localhost:7860/status)
+          echo "$body"
+          echo "$body" | grep -q '"ollama_available": true'
+          echo "$body" | grep -q "\"ollama_model\": \"$OLLAMA_MODEL\""
+
+      - name: Test /ask in mechanical mode
+        run: |
+          resp=$(curl -sf -X POST http://localhost:7860/ask \
+            -H 'Content-Type: application/json' \
+            -d '{"question":"What is Project Polaris?","mode":"mechanical"}')
+          echo "$resp"
+          echo "$resp" | grep -q '"mode": "mechanical"'
+          # mechanical mode should surface raw chunks that mention the doc
+          echo "$resp" | grep -iq 'polaris\|helix\|alessia'
+
+      - name: Test /ask in intelligent mode
+        run: |
+          resp=$(curl -sf -X POST http://localhost:7860/ask \
+            -H 'Content-Type: application/json' \
+            --max-time 180 \
+            -d '{"question":"Who leads Project Polaris?","mode":"intelligent"}')
+          echo "$resp"
+          echo "$resp" | jq -e '.mode == "intelligent"' >/dev/null
+          echo "$resp" | jq -e '.response_type == "intelligent"' >/dev/null
+          # Quality of tinyllama's answer is irrelevant; assert it's a non-empty string.
+          answer=$(echo "$resp" | jq -r '.answer')
+          test -n "$answer" && test "$answer" != "null"
+
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          echo "=== memvid logs ==="
+          docker logs --tail 300 memvid || true
+          echo "=== ollama logs ==="
+          docker logs --tail 100 ollama || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f memvid ollama || true
+          docker network rm "$NET" || true
