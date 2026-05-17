@@ -13,6 +13,7 @@ ENV PYTHONUNBUFFERED=1 \
     HF_HOME=/app/data/.cache
 
 # Installa dipendenze di sistema
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libavcodec-extra \
@@ -33,16 +34,14 @@ WORKDIR /app
 
 # Copia e installa dipendenze Python
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt || { echo "Errore nell'installazione delle dipendenze"; exit 1; }
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia gli script
+# Copia gli script + setup runtime (script eseguibili, dirs dati, utente non-root)
 COPY py/*.py ./
 COPY templates ./templates
-RUN chmod +x *.py
-
-# Crea directory per i dati
-RUN mkdir -p /app/data /app/output /app/docs /app/pdfs
+RUN chmod +x ./*.py && \
+    mkdir -p /app/data /app/output /app/docs /app/pdfs && \
+    useradd -m -u 1000 appuser
 
 # Esponi porta per web UI
 EXPOSE 7860
@@ -50,8 +49,6 @@ EXPOSE 7860
 # Volume per persistenza dati
 VOLUME ["/app/data", "/app/output", "/app/docs", "/app/pdfs"]
 
-# Crea utente non-root
-RUN useradd -m -u 1000 appuser
 USER appuser
 
 # Comando di default

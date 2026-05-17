@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  # Opt-in to Node 24 for JS actions; Node 20 is deprecated on GHA runners.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   validate:
     name: Validate repo
