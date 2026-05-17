@@ -169,15 +169,17 @@ jobs:
           # First start downloads sentence-transformers models + builds the
           # knowledge video, so the timeout is generous.
           deadline=$((SECONDS + 480))
+          last_body=""
           while [ $SECONDS -lt $deadline ]; do
-            body=$(curl -sf http://localhost:7860/status || true)
-            if [ -n "$body" ] && echo "$body" | grep -q '"memvid_ready": true'; then
+            body=$(curl -s http://localhost:7860/status || true)
+            last_body="$body"
+            if [ -n "$body" ] && echo "$body" | jq -e '.memvid_ready == true' >/dev/null 2>&1; then
               echo "Memvid ready: $body"
               exit 0
             fi
             sleep 5
           done
-          echo "Memvid not ready in time. Last container logs:"
+          echo "Memvid not ready in time. Last /status body: $last_body"
           docker logs --tail 200 memvid
           exit 1
 
@@ -185,8 +187,8 @@ jobs:
         run: |
           body=$(curl -sf http://localhost:7860/status)
           echo "$body"
-          echo "$body" | grep -q '"ollama_available": true'
-          echo "$body" | grep -q "\"ollama_model\": \"$OLLAMA_MODEL\""
+          echo "$body" | jq -e '.ollama_available == true' >/dev/null
+          echo "$body" | jq -e --arg m "$OLLAMA_MODEL" '.ollama_model == $m' >/dev/null
 
       - name: Test /ask in mechanical mode
         run: |
@@ -194,9 +196,9 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"question":"What is Project Polaris?","mode":"mechanical"}')
           echo "$resp"
-          echo "$resp" | grep -q '"mode": "mechanical"'
+          echo "$resp" | jq -e '.mode == "mechanical"' >/dev/null
           # mechanical mode should surface raw chunks that mention the doc
-          echo "$resp" | grep -iq 'polaris\|helix\|alessia'
+          echo "$resp" | jq -r '.answer' | grep -iq 'polaris\|helix\|alessia'
 
       - name: Test /ask in intelligent mode
         run: |
