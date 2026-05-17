@@ -136,8 +136,7 @@ def process_docs():
                     try:
                         with open(filepath, "r", encoding="utf-8") as f:
                             content = f.read()
-                            # Improve chunking for better context
-                            encoder.add_text(content, metadata={"file": file, "type": "markdown"})
+                            encoder.add_text(content)
                         logging.info(f"📄 Processed: {file}")
                         has_chunks = True
                     except Exception as e:
