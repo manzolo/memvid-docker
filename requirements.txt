@@ -1,0 +1,26 @@
+# Core Memvid
+memvid>=0.1.3
+PyPDF2>=3.0.0
+
+# Web Framework (sostituisce Gradio)
+flask>=2.3.0
+
+# Modelli di embedding avanzati
+sentence-transformers>=2.2.0
+transformers>=4.21.0
+
+# Computer Vision per QR
+opencv-python-headless>=4.8.0
+qrcode[pil]>=7.4.0
+pillow>=9.5.0
+
+# ML e processing
+numpy>=1.24.0
+scikit-learn>=1.3.0
+torch>=2.0.0
+
+# Utilità aggiuntive
+tqdm>=4.65.0
+click>=8.1.0
+python-dotenv>=1.0.0
+requests>=2.31.0

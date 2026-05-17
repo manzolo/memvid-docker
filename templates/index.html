@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memvid Chat - Document Q&A</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1000px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .status-bar {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            padding: 8px 25px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .mode-selector {
+            background: white;
+            padding: 15px 25px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .mode-label {
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.9rem;
+        }
+
+        .mode-options {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-options input[type="radio"] {
+            display: none;
+        }
+
+        .mode-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            font-size: 0.85rem;
+        }
+
+        .mode-option:hover {
+            border-color: #d1d5db;
+            background: #f9fafb;
+        }
+
+        input[type="radio"]:checked + .mode-option {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea10, #764ba210);
+            color: #4f46e5;
+        }
+
+        .mode-icon {
+            font-size: 1rem;
+        }
+
+        .mode-name {
+            font-weight: 600;
+        }
+
+        .mode-desc {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+
+        input[type="radio"]:checked + .mode-option .mode-desc {
+            color: #4f46e5;
+            opacity: 0.8;
+        }
+
+        .bot-message.mechanical {
+            border-left: 4px solid #f59e0b;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 16px 20px;
+            border-radius: 15px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 5px;
+        }
+
+        .bot-message.enhanced {
+            border-left: 4px solid #10b981;
+            background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+        }
+
+        .input-area {
+            padding: 25px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .input-container {
+            flex: 1;
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 15px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            transition: border-color 0.3s;
+            background: #f9fafb;
+        }
+
+        textarea:focus {
+            border-color: #667eea;
+            background: white;
+        }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+            font-style: italic;
+            padding: 15px 20px;
+            align-self: flex-start;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .loading-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #667eea;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .error {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            color: white;
+            border: none !important;
+        }
+
+        .warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: white;
+            border: none !important;
+        }
+
+        /* Scrollbar styling */
+        .chat-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                height: 95vh;
+                border-radius: 15px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .chat-area {
+                padding: 20px 15px;
+            }
+            
+            .message {
+                max-width: 95%;
+                padding: 12px 16px;
+            }
+            
+            .input-area {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Memvid Chat Enhanced</h1>
+            <p>Ask intelligent questions about your documents</p>
+        </div>
+        
+        <div class="status-bar" id="statusBar">
+            <div class="status-dot"></div>
+            <span id="statusText">System initializing...</span>
+        </div>
+        
+        <div class="mode-selector">
+            <div class="mode-label">Response Mode:</div>
+            <div class="mode-options">
+                <input type="radio" id="intelligent" name="mode" value="intelligent" checked>
+                <label for="intelligent" class="mode-option">
+                    <span class="mode-icon">🧠</span>
+                    <span class="mode-name">Intelligent</span>
+                    <span class="mode-desc">AI-synthesized answers</span>
+                </label>
+                
+                <input type="radio" id="mechanical" name="mode" value="mechanical">
+                <label for="mechanical" class="mode-option">
+                    <span class="mode-icon">⚙️</span>
+                    <span class="mode-name">Raw Search</span>
+                    <span class="mode-desc">Direct database results</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="chat-area" id="chatArea">
+            <div class="message bot-message enhanced">
+                🚀 <strong>Enhanced Memvid Chat Ready!</strong><br>
+                Now with intelligent answer synthesis using Ollama.<br>
+                Ask me anything about your documents - I'll provide clear, structured answers!
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <div class="input-container">
+                <textarea 
+                    id="questionInput" 
+                    placeholder="Ask a question about your documents..."
+                    rows="1"
+                ></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn" onclick="askQuestion()">
+                ➤
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const chatArea = document.getElementById('chatArea');
+        const questionInput = document.getElementById('questionInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusBar = document.getElementById('statusBar');
+        const statusText = document.getElementById('statusText');
+
+        // Check system status on load
+        async function checkStatus() {
+            try {
+                const response = await fetch('/status');
+                const status = await response.json();
+                
+                if (status.memvid_ready && status.ollama_available) {
+                    statusText.textContent = `Ready - Memvid + Ollama (${status.ollama_model})`;
+                    statusBar.style.background = 'rgba(16, 185, 129, 0.1)';
+                    statusBar.style.color = '#059669';
+                } else if (status.memvid_ready) {
+                    statusText.textContent = 'Ready - Memvid only (Ollama unavailable)';
+                    statusBar.style.background = 'rgba(245, 158, 11, 0.1)';
+                    statusBar.style.color = '#d97706';
+                } else {
+                    statusText.textContent = 'System not ready';
+                    statusBar.style.background = 'rgba(239, 68, 68, 0.1)';
+                    statusBar.style.color = '#dc2626';
+                }
+            } catch (error) {
+                statusText.textContent = 'Status check failed';
+                statusBar.style.background = 'rgba(239, 68, 68, 0.1)';
+                statusBar.style.color = '#dc2626';
+            }
+        }
+
+        // Auto-resize textarea
+        questionInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // Send on Enter (but allow Shift+Enter for new lines)
+        questionInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                askQuestion();
+            }
+        });
+
+        function addMessage(content, isUser = false, isError = false, isWarning = false, isEnhanced = false, isMechanical = false) {
+            const messageDiv = document.createElement('div');
+            let className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            if (isError) className += ' error';
+            if (isWarning) className += ' warning';
+            if (isEnhanced) className += ' enhanced';
+            if (isMechanical) className += ' mechanical';
+            
+            messageDiv.className = className;
+            messageDiv.textContent = content;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function getSelectedMode() {
+            const modeInputs = document.querySelectorAll('input[name="mode"]');
+            for (const input of modeInputs) {
+                if (input.checked) {
+                    return input.value;
+                }
+            }
+            return 'intelligent'; // default
+        }
+
+        function showLoading(mode) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading';
+            loadingDiv.id = 'loadingIndicator';
+            
+            if (mode === 'mechanical') {
+                loadingDiv.innerHTML = `
+                    <span>⚙️ Searching database...</span>
+                    <div class="loading-dots">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                `;
+            } else {
+                loadingDiv.innerHTML = `
+                    <span>🧠 Processing with AI...</span>
+                    <div class="loading-dots">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                `;
+            }
+            
+            chatArea.appendChild(loadingDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loadingIndicator');
+            if (loading) loading.remove();
+        }
+
+        async function askQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) return;
+
+            const mode = getSelectedMode();
+
+            // Add user message
+            addMessage(question, true);
+            questionInput.value = '';
+            questionInput.style.height = 'auto';
+            
+            // Disable input
+            questionInput.disabled = true;
+            sendBtn.disabled = true;
+            
+            // Show loading with mode-specific message
+            showLoading(mode);
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        question: question,
+                        mode: mode 
+                    })
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+                if (response.ok) {
+                    const isWarning = data.answer.includes('⚠️');
+                    const isError = data.answer.includes('❌');
+                    const isMechanical = data.response_type === 'mechanical';
+                    const isEnhanced = data.response_type === 'intelligent';
+                    
+                    addMessage(
+                        data.answer, 
+                        false, 
+                        isError, 
+                        isWarning, 
+                        isEnhanced, 
+                        isMechanical
+                    );
+                } else {
+                    addMessage(`❌ Error: ${data.error}`, false, true);
+                }
+            } catch (error) {
+                hideLoading();
+                addMessage(`❌ Connection error: ${error.message}`, false, true);
+            } finally {
+                // Re-enable input
+                questionInput.disabled = false;
+                sendBtn.disabled = false;
+                questionInput.focus();
+            }
+        }
+
+        // Initialize
+        checkStatus();
+        questionInput.focus();
+        
+        // Recheck status every 30 seconds
+        setInterval(checkStatus, 30000);
+    </script>
+</body>
+</html>

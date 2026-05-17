@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate repo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python syntax check (py_compile)
+        run: |
+          set -e
+          shopt -s nullglob
+          files=(py/*.py)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Python files found under py/"; exit 1
+          fi
+          python -m py_compile "${files[@]}"
+
+      - name: Validate docker-compose.yml
+        run: docker compose -f docker-compose.yml config -q
+
+      - name: Lint Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: error
+
+      - name: Verify referenced files exist
+        run: |
+          set -e
+          required=(
+            requirements.txt
+            Dockerfile
+            docker-compose.yml
+            Makefile
+            py/process_docs.py
+            py/chat.py
+            py/test_memvid.py
+            templates/index.html
+            templates/chat.html
+          )
+          missing=0
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::missing required file"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Verify README references resolve
+        run: |
+          set -e
+          for path in py/process_docs.py py/chat.py py/test_memvid.py docker-compose.yml Dockerfile .github/workflows/ci.yml; do
+            if ! grep -q "$path" README.md; then
+              echo "::warning::README does not reference $path"
+            fi
+          done

@@ -1,0 +1,27 @@
+# Data + artifacts
+data/
+ollama_data/
+output/*
+!output/.gitkeep
+
+# User documents (kept out of public repo)
+pdfs/*
+!pdfs/.gitkeep
+docs/*
+!docs/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Local env
+.env
+.env.local
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

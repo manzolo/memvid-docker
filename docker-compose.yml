@@ -1,0 +1,22 @@
+services:
+  memvid:
+    build: .
+    container_name: memvid-container
+    ports:
+      - "7860:7860"  # Web UI Gradio
+    volumes:
+      - ./docs:/app/docs:ro
+      - ./pdfs:/app/pdfs:ro
+      - ./output:/app/output
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - HF_HOME=/app/data/.cache
+      - OLLAMA_HOST=http://172.17.0.1:11434
+      - OLLAMA_MODEL=llama3
+    restart: unless-stopped
+    command: ["python", "/app/process_docs.py", "ui"]
+
+networks:
+  default:
+    name: memvid-network
